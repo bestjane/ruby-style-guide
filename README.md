@@ -1811,6 +1811,44 @@ no parameters.
   end
   ```
 
+* <a name="it-block-param"></a> Use `it` for single unnamed block parameters in simple cases.
+<sup>[[link](#it-block-param)]</sup>
+
+  Starting from Ruby 3.4, `it` is available as a default reference to a single block parameter if no explicit parameter name is given (e.g., `ary.map { it.upcase }`). It behaves like the numbered parameter `_1`.
+
+  The official recommendation is to "Use `it` in simple cases where it speaks for itself, such as in one-line blocks."
+
+  ```Ruby
+  # good - simple, clear use of it
+  [1, 2, 3].map { it * 2 } # => [2, 4, 6]
+  people.select { it.active? }.map { it.name }
+
+  # ok - _1 is also fine, but `it` can be more readable if only one param
+  [1, 2, 3].map { _1 * 2 }
+
+  # bad - block is not simple, `it` becomes unclear
+  complex_data.map { it[:key1][:subkey2] / it.another_method } # consider named param
+
+  # bad - multiple parameters, `it` cannot be used
+  # [[1, 2], [3, 4]].map { |a, b| a + b } # Correct: use named params
+  # [[1, 2], [3, 4]].map { it[0] + it[1] } # Avoid: `it` refers to the whole array [a,b]
+  ```
+
+  Regarding the `&:` shorthand: `&:` is generally preferred when the block's sole purpose is to call a single method (with no arguments) on the parameter. `it` is useful if there's a simple operation *on* the parameter itself.
+
+  ```Ruby
+  # good - preferred for simple method calls
+  names.map(&:upcase)
+
+  # good - `it` is suitable here as it's an operation on the param
+  numbers.map { it + 1 }
+
+  # bad - `&:` cannot do this
+  # numbers.map(&:+ 1) # This is not valid Ruby
+  ```
+
+  If a block accepts multiple parameters, or if the logic within the block is complex, named parameters remain the preferred choice for maintaining clarity.
+
 * <a name="global-stdout"></a>
   Use `$stdout/$stderr/$stdin` instead of `STDOUT/STDERR/STDIN`.
   `STDOUT/STDERR/STDIN` are constants, and while you can actually reassign
@@ -2455,6 +2493,8 @@ no parameters.
 * <a name="magic-comments-first"></a>
   Place magic comments above all code and documentation. Magic comments should only go below shebangs if they are needed in your source file.
 <sup>[[link](#magic-comments-first)]</sup>
+
+  > As of Ruby 3.4, mutating string literals in files that do *not* have the `# frozen_string_literal: true` magic comment will produce a deprecation warning when the interpreter is run with warnings enabled (e.g. `ruby -w` or `Warning[:deprecated] = true`). It is strongly recommended to include this comment in all Ruby files to prevent these warnings and ensure strings are frozen by default, which can help prevent certain types of bugs related to string mutation.
 
   ```Ruby
   # good

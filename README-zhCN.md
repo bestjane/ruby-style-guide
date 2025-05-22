@@ -1657,6 +1657,44 @@ Ruby 社区尚未就某些规则达成明显的共识，比如字符串字面量
   end
   ```
 
+* <a name="it-block-param-zhcn"></a> 在简单情况下，使用 `it` 作为单个未命名区块参数。
+<sup>[[link]](#it-block-param-zhcn)]</sup>
+
+  从 Ruby 3.4 开始，如果没有给出明确的参数名，`it` 可以作为单个区块参数的默认引用（例如 `ary.map { it.upcase }`）。它的行为类似于编号参数 `_1`。
+
+  官方建议是：“在 `it` 不言自明的简单情况下使用它，例如在单行区块中。”
+
+  ```Ruby
+  # 好 - 简单、清晰地使用 it
+  [1, 2, 3].map { it * 2 } # => [2, 4, 6]
+  people.select { it.active? }.map { it.name }
+
+  # 可以 - _1 也可以，但如果只有一个参数，`it` 可能更具可读性
+  [1, 2, 3].map { _1 * 2 }
+
+  # 差 - 区块不简单，`it` 变得不清晰
+  complex_data.map { it[:key1][:subkey2] / it.another_method } # 考虑使用命名参数
+
+  # 差 - 多个参数，不能使用 `it`
+  # [[1, 2], [3, 4]].map { |a, b| a + b } # 正确：使用命名参数
+  # [[1, 2], [3, 4]].map { it[0] + it[1] } # 避免：`it` 指的是整个数组 [a,b]
+  ```
+
+  关于 `&:` 简写：当区块的唯一目的是在参数上调用单个方法（无参数）时，通常首选 `&:`。如果对参数本身进行简单操作，则 `it` 很有用。
+
+  ```Ruby
+  # 好 - 对于简单的方法调用，首选此方式
+  names.map(&:upcase)
+
+  # 好 - 此处适合使用 `it`，因为它是对参数的操作
+  numbers.map { it + 1 }
+
+  # 差 - `&:` 无法做到这一点
+  # numbers.map(&:+ 1) # 这不是有效的 Ruby 写法
+  ```
+
+  如果一个区块接受多个参数，或者区块内的逻辑很复杂，那么为了保持清晰，命名参数仍然是首选。
+
 * <a name="global-stdout"></a>
   使用 `$stdout/$stderr/$stdin` 而不是 `STDOUT/STDERR/STDIN`。`STDOUT/STDERR/STDIN` 是常量，尽管在 Ruby 中允许给常量重新赋值（可能是重定向某些流），但解释器会发出警告。
 <sup>[[link](#global-stdout)]</sup>
@@ -1805,6 +1843,32 @@ Ruby 社区尚未就某些规则达成明显的共识，比如字符串字面量
 * <a name="no-flip-flops"></a>
   避免使用 flip-flops 操作符。
 <sup>[[link](#no-flip-flops)]</sup>
+
+* <a name="nil-keyword-splat-zhcn"></a> 适当时，使用 `**nil` 显式传递空关键字参数。
+<sup>[[link]](#nil-keyword-splat-zhcn)]</sup>
+
+  Ruby 3.4+ 允许在方法调用中使用 `**nil`。此语法被视为未向方法传递任何关键字参数，类似于传递一个空哈希（`**{}`）。重要的是，`**nil` 不会调用 `nil` 上的任何转换方法（如 `to_hash`）。
+
+  ```Ruby
+  def process_options(name, **options)
+    puts "名称: #{name}, 选项: #{options}"
+  end
+
+  process_options("默认")                                # => 名称: 默认, 选项: {}
+  process_options("使用空哈希", **{})                    # => 名称: 默认, 选项: {}
+  process_options("使用NilSplat", **nil)                # => 名称: 默认, 选项: {} (Ruby 3.4+)
+
+  # 可用于有条件地转发关键字参数：
+  def forward_request(user_data, forward_all_keywords: false)
+    actual_keywords = forward_all_keywords ? user_data.keywords : nil
+    # 在 Ruby 3.4+ 中, **nil 被视为空关键字参数传递。
+    # 在旧版 Ruby 中，如果 user_data.keywords 为 nil，则会发生 TypeError。
+    # 之前可能需要写成 (**(actual_keywords || {}))。
+    other_service.submit(**actual_keywords)
+  end
+  ```
+
+  当您希望清楚地表明有意不传递任何关键字参数时，特别是在动态场景或转发参数时，建议使用 `**nil`。对于 `nil` 的情况，这可以改进 `**(some_hash || {})` 模式，提供更好的清晰度，并避免在旧版 Ruby 中对 `nil` 进行潜在的 `to_hash` 调用。
 
 * <a name="no-nested-conditionals"></a>
   流程控制中，避免使用嵌套条件。
@@ -2228,6 +2292,8 @@ Ruby 社区尚未就某些规则达成明显的共识，比如字符串字面量
 * <a name="magic-comments-first"></a>
   Place magic comments above all code and documentation. Magic comments should only go below shebangs if they are needed in your source file.
 <sup>[[link](#magic-comments-first)]</sup>
+
+  > 从 Ruby 3.4 开始，如果在未启用警告（例如 `ruby -w` 或 `Warning[:deprecated] = true`）的情况下运行解释器，在没有 `# frozen_string_literal: true` 魔法注释的文件中修改字符串字面量将会产生弃用警告。强烈建议在所有 Ruby 文件中包含此注释，以防止这些警告并确保字符串默认被冻结，这有助于防止某些与字符串修改相关的错误。
 
   ```Ruby
   # good
